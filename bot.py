@@ -46,9 +46,13 @@ def ask_groq(user_message):
     try:
         response = requests.post("https://api.groq.com/openai/v1/chat/completions",
                                  headers=headers, json=data)
-        result = response.json()
-        if "choices" in result:
-            return result["choices"][0]["message"]["content"]
+      result = response.json()
+
+try:
+    return result["choices"][0]["message"]["content"]
+except:
+    print("GROQ ERROR:", result)
+    return "Ошибка ответа от ИИ"
         else:
             print("GROQ error:", result)
             return "Извините, произошла ошибка. Напишите нам напрямую!"
