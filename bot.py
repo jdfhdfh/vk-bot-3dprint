@@ -1,44 +1,16 @@
 import os
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request
 
 app = Flask(__name__)
 
 VK_TOKEN = os.getenv("VK_TOKEN")
-CONFIRMATION_TOKEN = os.getenv("CONFIRMATION_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 
-# 🔥 Запрос к GROQ (реальный ИИ)
+# 🤖 ИИ (пока можно оставить простой ответ)
 def ask_groq(text):
-    url = "https://api.groq.com/openai/v1/chat/completions"
-
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json"
-    }
-
-    data = {
-        "model": "llama3-8b-8192",
-        "messages": [
-            {
-                "role": "system",
-                "content": "Ты помощник сервиса 3D печати. Отвечай кратко, дружелюбно и продающе."
-            },
-            {
-                "role": "user",
-                "content": text
-            }
-        ]
-    }
-
-    try:
-        response = requests.post(url, headers=headers, json=data)
-        result = response.json()
-        return result["choices"][0]["message"]["content"]
-    except Exception as e:
-        print("GROQ ERROR:", e)
-        return "Ошибка ИИ 😢 Попробуй позже."
+    return "Привет! 👋 Напиши, что хочешь напечатать на 3D-принтере."
 
 
 # 📩 Отправка сообщения в ВК
@@ -63,12 +35,9 @@ def home():
 def webhook():
     data = request.json
 
-    if not data:
-        return "no data"
-
-    # 🔐 Подтверждение сервера ВК
+    # 🔥 ВАЖНО — подтверждение ВК (жестко прописано)
     if data["type"] == "confirmation":
-        return CONFIRMATION_TOKEN
+        return "c16bd2a8"
 
     # 💬 Новое сообщение
     if data["type"] == "message_new":
@@ -79,14 +48,14 @@ def webhook():
         if text:
             reply = ask_groq(text)
         else:
-            reply = "Напиши текст 😊"
+            reply = "Напиши сообщение 😊"
 
         send_vk(user_id, reply)
 
     return "ok"
 
 
-# 🚀 Запуск для Render
+# 🚀 Запуск
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
