@@ -30,13 +30,11 @@ def ask_groq(user_message):
                 "role": "system",
                 "content": """Ты помощник мастерской 3D печати в Ессентуках. Тебя зовут Печатник.
 Ты помогаешь клиентам: отвечаешь на вопросы о 3D печати, принимаешь заказы, рассказываешь о возможностях.
-
 Что мы печатаем: фигурки, сувениры, украшения, аксессуары, запчасти, детали — любые изделия под заказ.
 Материалы: PLA, PETG, ABS и другие пластики.
 Сроки: зависят от сложности, обычно 1-3 дня.
 Для заказа нужно: описание изделия или файл STL, размеры, материал (если есть предпочтения).
 Цены: рассчитываются индивидуально после уточнения деталей.
-
 Общайся дружелюбно, по-русски. Если клиент хочет сделать заказ — попроси описать что именно нужно напечатать."""
             },
             {
@@ -45,10 +43,18 @@ def ask_groq(user_message):
             }
         ]
     }
-    response = requests.post("https://api.groq.com/openai/v1/chat/completions", 
-                             headers=headers, json=data)
-    result = response.json()
-    return result["choices"][0]["message"]["content"]
+    try:
+        response = requests.post("https://api.groq.com/openai/v1/chat/completions",
+                                 headers=headers, json=data)
+        result = response.json()
+        if "choices" in result:
+            return result["choices"][0]["message"]["content"]
+        else:
+            print("GROQ error:", result)
+            return "Извините, произошла ошибка. Напишите нам напрямую!"
+    except Exception as e:
+        print("Exception:", e)
+        return "Извините, произошла ошибка. Напишите нам напрямую!"
 
 @app.route("/", methods=["GET"])
 def index():
@@ -57,18 +63,17 @@ def index():
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.json
-    
+
     if data.get("type") == "confirmation":
         return CONFIRMATION_TOKEN
-    
+
     if data.get("type") == "message_new":
         message = data["object"]["message"]
         user_id = message["from_id"]
         text = message["text"]
-        
         reply = ask_groq(text)
         send_message(user_id, reply)
-    
+
     return "ok"
 
 if __name__ == "__main__":
