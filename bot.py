@@ -4,84 +4,69 @@ from flask import Flask, request
 
 app = Flask(__name__)
 
-VK_TOKEN = os.environ.get("VK_TOKEN")
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-CONFIRMATION_TOKEN = os.environ.get("CONFIRMATION_TOKEN")
+VK_TOKEN = os.getenv("VK_TOKEN")
+GROUP_ID = os.getenv("GROUP_ID")
+CONFIRMATION_TOKEN = os.getenv("CONFIRMATION_TOKEN")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 
-def send_message(user_id, message):
-    requests.post("https://api.vk.com/method/messages.send", data={
-        "user_id": user_id,
-        "message": message,
-        "random_id": 0,
-        "access_token": VK_TOKEN,
-        "v": "5.131"
-    })
+def ask_groq(text):
+    url = "https://api.groq.com/openai/v1/chat/completions"
 
-
-def ask_groq(user_message):
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
     }
 
     data = {
-        "model": "llama-3.1-8b-instant",
+        "model": "llama3-70b-8192",  # РАБОЧАЯ модель
         "messages": [
-            {
-                "role": "system",
-                "content": "Ты помощник 3D печати. Отвечай коротко и по делу."
-            },
-            {
-                "role": "user",
-                "content": user_message
-            }
+            {"role": "system", "content": "Ты дружелюбный и немного кокетливый ИИ 😈"},
+            {"role": "user", "content": text}
         ]
     }
 
+    response = requests.post(url, headers=headers, json=data)
+
     try:
-        response = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers=headers,
-            json=data
-        )
-
         result = response.json()
+        return result["choices"][0]["message"]["content"]
+    except:
+        print("GROQ ERROR:", response.text)
+        return "Ошибка ИИ 😢"
 
-        if "choices" in result:
-            return result["choices"][0]["message"]["content"]
-        else:
-            print("GROQ ERROR:", result)
-            return "Ошибка ИИ"
 
-    except Exception as e:
-        print("ERROR:", e)
-        return "Ошибка сервера"
+def send_vk(user_id, message):
+    requests.post("https://api.vk.com/method/messages.send", params={
+        "user_id": user_id,
+        "message": message,
+        "random_id": 0,
+        "access_token": VK_TOKEN,
+        "v": "5.199"
+    })
 
 
 @app.route("/", methods=["GET"])
-def index():
-    return "Bot is running!"
+def home():
+    return "OK"
 
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.json
 
-    if data.get("type") == "confirmation":
+    if data["type"] == "confirmation":
         return CONFIRMATION_TOKEN
 
-    if data.get("type") == "message_new":
-        message = data["object"]["message"]
-        user_id = message["from_id"]
-        text = message["text"]
+    if data["type"] == "message_new":
+        user_id = data["object"]["message"]["from_id"]
+        text = data["object"]["message"]["text"]
 
         reply = ask_groq(text)
-        send_message(user_id, reply)
+        send_vk(user_id, reply)
 
     return "ok"
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=10000)
